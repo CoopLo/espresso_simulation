@@ -5,6 +5,30 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 
 
+def _diff_ux(u_gird, i, j, dx, u_bcs):
+    return 4*nu/(dx**2) * (u_grid[i+1][j] - u_grid[i][j] + u_grid[i-1][j])
+
+
+def _diff_uy(u_grid, i, j, dy, u_bcs):
+    if(j==0): # Ghost node on bottom wall
+        diff_y = 4*nu/(dy**2) * (u_grid[i][j+1] - u_grid[i][j] - u_grid[i][j])
+    elif(j==u_grid.shape[1]-1): # Ghost node on bottom wall
+        diff_y = 4*nu/(dy**2) * (-u_grid[i][j] - u_grid[i][j] + u_grid[i][j-1])
+    else:
+        diff_y = 4*nu/(dy**2) * (u_grid[i][j+1] - u_grid[i][j] + u_grid[i][j-1])
+
+    return diff_y
+    #pass
+
+
+def _dvu():
+    pass
+
+
+def _duv():
+    pass
+
+
 #@jit
 def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
     u_star_grid = np.zeros(u_grid.shape)
@@ -13,14 +37,16 @@ def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
         for j in range(u_grid.shape[1]):
 
             # Diffusion terms
-            diff_x = 4*nu/(dx**2) * (u_grid[i+1][j] - u_grid[i][j] + u_grid[i-1][j])
+            #diff_x = 4*nu/(dx**2) * (u_grid[i+1][j] - u_grid[i][j] + u_grid[i-1][j])
+            diff_x = _diff_ux(u_grid, i, j, dx, u_bcs)
 
-            if(j==0): # Ghost node on bottom wall
-                diff_y = 4*nu/(dy**2) * (u_grid[i][j+1] - u_grid[i][j] - u_grid[i][j])
-            elif(j==u_grid.shape[1]-1): # Ghost node on bottom wall
-                diff_y = 4*nu/(dy**2) * (-u_grid[i][j] - u_grid[i][j] + u_grid[i][j-1])
-            else:
-                diff_y = 4*nu/(dy**2) * (u_grid[i][j+1] - u_grid[i][j] + u_grid[i][j-1])
+            #if(j==0): # Ghost node on bottom wall
+            #    diff_y = 4*nu/(dy**2) * (u_grid[i][j+1] - u_grid[i][j] - u_grid[i][j])
+            #elif(j==u_grid.shape[1]-1): # Ghost node on bottom wall
+            #    diff_y = 4*nu/(dy**2) * (-u_grid[i][j] - u_grid[i][j] + u_grid[i][j-1])
+            #else:
+            #    diff_y = 4*nu/(dy**2) * (u_grid[i][j+1] - u_grid[i][j] + u_grid[i][j-1])
+            diff_y = _diff_uy(u_grid, i, j, dy, u_bcs)
 
             # duu/dx
             duu = 1/dx * (((u_grid[i+1][j]+u_grid[i][j])/2)**2 - \
@@ -53,6 +79,80 @@ def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
     return u_star_grid
 
 
+def _diff_vx(v_grid, i, j, dx, v_bcs):
+
+    # 0 velocities on boundaries
+    # Additional condition skips edge because it isn't used in diff_x
+    left = 0 if(any(np.sum([i+1,j] == v_bcs, axis=1)==2) or 
+             not((i+1) < (v_grid.shape[0]-1))) else v_grid[i+1][j]
+    middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
+    right = 0 if(any(np.sum([i-1,j] == v_bcs, axis=1)==2)) else v_grid[i-1][j]
+
+    if(i == 0): # Ghost node left wall
+        diff_x = 4*nu/(dx**2) * (left - middle - middle)
+    elif(i == v_grid.shape[0]-1): # Ghost node right wall
+        diff_x = 4*nu/(dx**2) * (-middle - middle + right)
+    else:
+        diff_x = 4*nu/(dx**2) * (left - middle + right)
+
+    return diff_x
+
+
+def _diff_vy(v_grid, i, j, dy, v_bcs):
+    
+    # 0 velocities on boundaries
+    left = 0 if(any(np.sum([i,j+1] == v_bcs, axis=1)==2)) else v_grid[i][j+1]
+    middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
+    right = 0 if(any(np.sum([i,j-1] == v_bcs, axis=1)==2)) else v_grid[i][j-1]
+
+    return 4*nu/(dy**2) * (left - middle + right)
+
+
+def _dvv(v_grid, i, j, dy, v_bcs):
+
+    # 0 velocities on boundaries
+    left = 0 if(any(np.sum([i,j+1] == v_bcs, axis=1)==2)) else v_grid[i][j+1]
+    middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
+    right = 0 if(any(np.sum([i,j-1] == v_bcs, axis=1)==2)) else v_grid[i][j-1]
+
+    return  1/(2*dy) * (((left+middle)/2)**2 - \
+                        ((middle+right)/2)**2)
+
+
+def _duv(v_grid, u_grid, i, j, dx, v_bcs, u_bcs):
+
+    # 0 velocities on boundaries
+    v_left = 0 if(any(np.sum([i,j+1] == v_bcs, axis=1)==2)) else v_grid[i][j+1]
+    v_middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
+    v_right = 0 if(any(np.sum([i,j-1] == v_bcs, axis=1)==2)) else v_grid[i][j-1]
+
+    # 0 velocities on boundaries
+    u_top_left = 0 if(any(np.sum([i,(j-1)+1] == v_bcs, axis=1)==2)) else u_grid[i][(j-1)+1]
+    u_top_right = 0 if(any(np.sum([i,(j-1)] == v_bcs, axis=1)==2)) else u_grid[i][(j-1)]
+    u_bottom_left = 0 if(any(np.sum([i-1,j] == v_bcs, axis=1)==2)) else \
+                      u_grid[i-1][j]
+    u_bottom_right = 0 if(any(np.sum([i-1,(j-1)-1] == v_bcs, axis=1)==2)) else \
+                      u_grid[i-1][j-1]
+
+    if(i == 0): # Ghost node left wall
+        duv = 1/dx * (((u_top_left+u_top_right)/2)*\
+                  ((v_left+v_middle)/2) - \
+                  ((u_bottom_left+u_bottom_right)/2)*\
+                  ((v_middle-v_middle)/2))
+    elif(i == v_grid.shape[0]-1): # Ghost node right wall
+        duv = 1/dx * (((u_top_left+u_top_right)/2)*\
+                  ((-v_middle+v_middle)/2) - \
+                  ((u_bottom_left+u_bottom_right)/2)*\
+                  ((v_grid[i][j]+v_grid[i-1][j])/2))
+    else:
+        duv = 1/dx * (((u_top_left+u_top_right)/2)*\
+                  ((v_left+v_right)/2) - \
+                  ((u_bottom_left+u_bottom_right)/2)*\
+                  ((v_middle+v_right)/2))
+
+    return duv
+
+
 #@jit
 def y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
     v_star_grid = np.copy(v_grid)
@@ -62,35 +162,12 @@ def y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
         for j in range(1, v_grid.shape[1]-1):
 
             # Diffusion terms
-            if(i == 0): # Ghost node left wall
-                diff_x = 4*nu/(dx**2) * (v_grid[i+1][j] - v_grid[i][j] - v_grid[i][j])
-            elif(i == v_grid.shape[0]-1): # Ghost node right wall
-                diff_x = 4*nu/(dx**2) * (-v_grid[i][j] - v_grid[i][j] + v_grid[i-1][j])
-            else:
-                diff_x = 4*nu/(dx**2) * (v_grid[i+1][j] - v_grid[i][j] + v_grid[i-1][j])
+            diff_x = _diff_vx(v_grid, i, j, dx, v_bcs)
+            diff_y = _diff_vy(v_grid, i, j, dy, v_bcs)
 
-            diff_y = 4*nu/(dy**2) * (v_grid[i][j+1] - v_grid[i][j] + v_grid[i][j-1])
-
-            # dvv/dy
-            dvv = 1/(2*dy) * (((v_grid[i][j+1]+v_grid[i][j])/2)**2 - \
-                        ((v_grid[i][j]+v_grid[i][j-1])/2)**2)
-
-            # duv/dy TODO: Check this. It may be incorrect.
-            if(i == 0): # Ghost node left wall
-                duv = 1/dx * (((u_grid[i][(j-1)+1]+u_grid[i][(j-1)])/2)*\
-                          ((v_grid[i+1][j]+v_grid[i][j])/2) - \
-                          ((u_grid[(i-1)-1][j]+u_grid[(i-1)-1][j-1])/2)*\
-                          ((v_grid[i][j]-v_grid[i][j])/2))
-            elif(i == v_grid.shape[0]-1): # Ghost node right wall
-                duv = 1/dx * (((u_grid[i][(j-1)+1]+u_grid[i][(j-1)])/2)*\
-                          ((-v_grid[i][j]+v_grid[i][j])/2) - \
-                          ((u_grid[(i-1)-1][j]+u_grid[(i-1)-1][j-1])/2)*\
-                          ((v_grid[i][j]+v_grid[i-1][j])/2))
-            else:
-                duv = 1/dx * (((u_grid[i][(j-1)+1]+u_grid[i][(j-1)])/2)*\
-                          ((v_grid[i+1][j]+v_grid[i][j])/2) - \
-                          ((u_grid[(i-1)-1][j]+u_grid[(i-1)-1][j-1])/2)*\
-                          ((v_grid[i][j]+v_grid[i-1][j])/2))
+            # Advection terms
+            dvv = _dvv(v_grid, i, j, dy, v_bcs)
+            duv = _duv(v_grid, u_grid, i, j, dx, v_bcs, u_bcs)
 
             # Update grid
             v_star_grid[i][j] = v_grid[i][j] + dt*(diff_x + diff_y - dvv - dvv)
@@ -185,10 +262,8 @@ def update_pressure(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, b
         b[y_shape-1::y_shape] -= OVERPRESSURE/(dy**2) # top
 
         # Need to transform bcs into reshaped coordinates
-        #print(b[coffee_bcs] -= p_grid[coffee_bcs]/(dy**2))
         #b[coffee_bcs] -= p_grid[coffee_bcs]/(dy**2)
         #b[bcs] -= p_grid[bcs]/(dy**2)
-        #print(bcs-1)
         #raise
 
         #b[-y_shape:] -= 0 # Test x-velocity
@@ -255,7 +330,7 @@ def point_jacobi(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, bcs,
 
 
 #@jit
-def update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, bcs):
+def update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, u_bcs, v_bcs):
 
     # Bulk
     u_updated = np.copy(u_grid)
@@ -270,29 +345,17 @@ def update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, bcs):
         for j in range(1, v_grid.shape[1]-1):
             v_updated[i][j] = v_grid[i][j] + dt/(rho) * \
                               (p_grid[i][(j-1)+1] - p_grid[i][(j-1)])
-    #fig, ax = plt.subplots()
-    #ax.imshow(v_updated)
-    #ax.imshow(p_grid)
-    #plt.show()
-    #raise
 
     # Bottom and top velocities are the same as interior
     v_updated[:,-1] = v_updated[:,-2]
     v_updated[:,0] = v_updated[:,1]
 
-    #u_updated[-1] = u_updated[-2]
-    #u_updated[0] = u_updated[1]
-    # Walls
-    for j in range(1, v_grid.shape[1]-1):
-        # Left
-        #v_updated[1][j] -= dt/rho*v_updated[2][j]/(2*dx)
-        #v_updated[1][j] = 0
+    for v in v_bcs:
+        v_updated[v[0], v[1]] = 0
 
-        # Right
-        #v_updated[-1][j] = 0
-        pass
+    for u in u_bcs:
+        u_updated[u[0], u[1]] = 0
 
-    
     return u_updated, v_updated
 
 
@@ -341,21 +404,33 @@ if __name__ == '__main__':
     #p_grid[0] = OVERPRESSURE # Test x-velocity
 
     # Load coffee grounds
-    #grounds = load_bed(p_grid, 0.05, seed=1, boulder_frac=0.)
-    grounds = load_bed(p_grid, 0.0, seed=1, boulder_frac=0.)
+    grounds = load_bed(p_grid, 0.09, seed=1, boulder_frac=1.)
     bcs = np.argwhere(grounds == 1)
     print(bcs)
+
+    # Make u_bcs for staggered grid
+    temp_u_bcs = np.copy(bcs)
+    temp_u_bcs[:,0] += 1
+    #temp_u_bcs[:,1] -= 1
+    u_bcs = np.concatenate((bcs, temp_u_bcs), axis=0)
+    u_bcs -= 1
+
+    # Make v_bcs for staggered grid
+    temp_v_bcs = np.copy(bcs)
+    temp_v_bcs[:,1] -= 1
+    v_bcs = np.concatenate((bcs, temp_v_bcs), axis=0)
+
     #print(bcs)
     #fig, ax = plt.subplots()
-    #ax.imshow(grounds)
+    #ax.imshow(grounds[:,::-1].T)
     #plt.show()
     #raise
     #print(grounds)
 
     timesteps = 100000
     for t in tqdm(range(timesteps)):
-        u_grid = x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=bcs)
-        v_grid = y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=bcs)
+        u_grid = x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=u_bcs)
+        v_grid = y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=v_bcs)
 
         # Pressure laplacian is good. Need to figure out velocities before going Poisson
         flat_p_grid = update_pressure(u_grid, v_grid, p_grid[1:-1,1:-1].reshape(-1,1),
@@ -374,10 +449,9 @@ if __name__ == '__main__':
         p_grid[-1] = p_grid[-2]
         #p_grid[:,0] = p_grid[:,1] # Test x-velocity
         #p_grid[:,-1] = p_grid[:,-2] # Test x-velocity
-        u_grid, v_grid = update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, bcs=bcs)
-        #u_grid = np.zeros(u_grid.shape)
+        u_grid, v_grid = update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, u_bcs, v_bcs)
 
-        if(t == 10):
+        if(t == 5):
             #print(u_grid)
             u_final, v_final = final_velocities(u_grid, v_grid, bcs=bcs)
             print("DONE WITH PRESSURE")
@@ -385,11 +459,11 @@ if __name__ == '__main__':
             fig, ax = plt.subplots(ncols=3, figsize=(15,5))
             ax[0].imshow(p_grid[:,::-1].T)
             ax[0].set(title="Pressure")
-            ax[1].imshow(u_grid[:,::-1].T)
-            #ax[1].imshow(u_final[:,::-1].T)
+            #ax[1].imshow(u_grid[:,::-1].T)
+            ax[1].imshow(u_final[:,::-1].T)
             ax[1].set(title="U")
-            ax[2].imshow(v_grid[:,::-1].T)
-            #ax[2].imshow(v_final[:,::-1].T)
+            #ax[2].imshow(v_grid[:,::-1].T)
+            ax[2].imshow(v_final[:,::-1].T)
             ax[2].set(title="V")
             plt.show()
             #fig, ax = plt.subplots()
