@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-def load_bed(grid, infill, point=1, boulder=3, seed=None):
+def load_bed(grid, infill, point=1, boulder=3, seed=None, boulder_frac=0.3):
 
     if(seed is not None):
         np.random.seed(seed)
@@ -10,10 +10,10 @@ def load_bed(grid, infill, point=1, boulder=3, seed=None):
     allowed_infill = int(np.prod(grid.shape)*infill)
 
     # Get number of boulders
-    num_boulder = int(allowed_infill*0.3/boulder**2)
+    num_boulder = int(allowed_infill*boulder_frac/boulder**2)
 
     # Get number of points
-    num_point = int(allowed_infill*0.7/point**2)
+    num_point = int(allowed_infill*(1-boulder_frac)/point**2)
 
     # Place boulders, make sure they don't go over the edges, no overlaps
     num_placed = 0
@@ -39,6 +39,7 @@ def load_bed(grid, infill, point=1, boulder=3, seed=None):
             num_placed += 1
 
     return grid
+
 
 def update_grid(grid, updated_grid, dx, dy, dt, u, v, mu, bc_grid, tstep=0):
     for i in range(1, grid.shape[0]-1):
