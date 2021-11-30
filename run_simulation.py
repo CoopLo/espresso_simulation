@@ -295,7 +295,7 @@ def update_pressure(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, b
     while(np.linalg.norm(old_grid - p_grid) > threshold):
         it += 1
         #print(np.linalg.norm(old_grid - p_grid))
-        if(it > 1000):
+        if(it > 10000):
             print(np.linalg.norm(old_grid - p_grid))
             raise
 
@@ -421,7 +421,60 @@ def final_velocities(u_grid, v_grid, bcs):
     return u_final, v_final
 
 
-def pretty_plot(u_grid, v_grid, p_grid, grounds, bcs, t):
+def updated_concentration(concentration, u_grid, v_grid, grounds, dx, dy, dt, D_c):
+    # This is advection-diffusion
+    
+    # Diffusion from grounds
+    for i in range(1, concentration.shape[0]-1):
+        for j in range(1, concentration.shape[1]-1):
+            concentration[i][j] = concentration[i][j] + D_c*dt*(
+              (concentration[i+1][j] - 2*concentration[i][j] + concentration[i-1][j])/(dx**2) + 
+              (concentration[i][j-1] - 2*concentration[i][j] + concentration[i][j-1])/(dy**2))
+
+    # Calculate velocities at each node center
+    u_center = np.zeros(concentration.shape)
+    for i in range(concentration.shape[0]):
+        for j in range(concentration.shape[1]):
+            u_center[i][j] = (u_grid[i][j] + u_grid[i-1][j])/2
+    v_center = np.zeros(concentration.shape)
+    for i in range(concentration.shape[0]):
+        for j in range(concentration.shape[1]):
+            v_center[i][j] = (v_grid[i][j+1] + v_grid[i][j])/2
+
+    # Advection-diffusion of concentration
+    for i in range(1, concentration.shape[0]-1):
+        for j in range(concentration.shape[1]-1):
+            x_ad = u_center[i][j]/dx
+            x_ad *= (u_center[i][j] - u_center[i-1][j]) if(x_ad > 0) else \
+                    (u_center[i+1][j] - u_center[i][j])
+
+            y_ad = v_center[i][j]/dy
+            y_ad *= (v_center[i][j] - v_center[i][j-1]) if(y_ad > 0) else \
+                    (v_center[i][j+1] - v_center[i][j])
+
+            x_diff = dt*D_c*(concentration[i+1][j] - 2*concentration[i][j] + \
+                      concentration[i][j])/(dx**2)
+
+            # Need sided scheme at outlet
+            if(j != 0):
+                y_diff = dt*D_c*(concentration[i][j+1] - 2*concentration[i][j] + \
+                      concentration[i][j-1])/(dy**2)
+            else:
+                y_diff = dt*D_c*(3*concentration[i][j-2] - 4*concentration[i][j-1] - \
+                      concentration[i][j])/(dy**2)
+
+            concentration[i][j] = concentration[i][j] + x_diff + y_diff
+
+    # Concentration in grounds remains constant
+    for i in range(concentration.shape[0]):
+        for j in range(concentration.shape[1]):
+            if(grounds[i][j] == 1):
+                concentration[i][j] = 10
+
+    return concentration
+
+
+def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t):
     u_final, v_final = final_velocities(u_grid, v_grid, bcs=bcs)
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(10,7))
     ax[0][0].imshow(grounds[:,::-1].T)
@@ -467,10 +520,9 @@ def pretty_plot(u_grid, v_grid, p_grid, grounds, bcs, t):
     fig.suptitle("Timestep: {}".format(t), fontsize=18)
     plt.tight_layout()
     #plt.show()
-    zeros = "0"*(int(np.log(100)/np.log(10)) - int(np.log(t+1)/np.log(10)))
-    plt.savefig("./brews/{}{}.png".format(zeros, t+1))
+    zeros = "0"*(int(np.log(1001)/np.log(10)) - int(np.log(t+1)/np.log(10)))
+    plt.savefig("./thin_brews/{}{}.png".format(zeros, t+1))
     plt.close()
-    #raise
     
 
 
@@ -486,15 +538,16 @@ if __name__ == '__main__':
     #TODO: Check CFL
 
     # System parameters
-    #Lx = 0.012
-    #Ly = 0.009
-    Lx = 0.055
-    Ly = 0.03
+    Lx = 0.012
+    Ly = 0.009
+    #Lx = 0.055
+    #Ly = 0.03
     #TODO: This need to be changed
     rho = 1.
-    rho = 0.2818 # Viscosity of heated water
-    nu = 1.
-    OVERPRESSURE = 0.001
+    #rho = 0.2818 
+
+    nu = 0.2818
+    OVERPRESSURE = 6e-6
 
     u_grid = np.zeros((int(Lx/dx)+1, int(Ly/dy)))
     v_grid = np.zeros((int(Lx/dx), int(Ly/dy)+1))
@@ -504,9 +557,13 @@ if __name__ == '__main__':
 
     # Load coffee grounds
     #grounds = load_bed(p_grid, 0.09, seed=1, boulder_frac=1.)
-    grounds = load_bed(np.copy(p_grid), 0.2, seed=1, boulder_frac=0.3)
+    grounds = load_bed(np.copy(p_grid), 0.05, seed=1, boulder_frac=0.3)
     grounds[:,-1] = 0
     bcs = np.argwhere(grounds == 1)
+
+    # Get concentration setup
+    concentration = np.copy(grounds)*10
+    D_c = 1.
 
     # Make u_bcs for staggered grid
     temp_u_bcs = np.copy(bcs)
@@ -521,7 +578,9 @@ if __name__ == '__main__':
     v_bcs = np.concatenate((bcs, temp_v_bcs), axis=0)
 
     #timesteps = 100000
-    timesteps = 50
+    print(timesteps)
+    timesteps = 1000
+    total_concentration = 0
     for t in tqdm(range(timesteps)):
         u_grid = x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=u_bcs)
         v_grid = y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=v_bcs)
@@ -544,8 +603,20 @@ if __name__ == '__main__':
         #p_grid[:,0] = p_grid[:,1] # Test x-velocity
         #p_grid[:,-1] = p_grid[:,-2] # Test x-velocity
         u_grid, v_grid = update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, u_bcs, v_bcs)
+        concentration = updated_concentration(concentration, u_grid, v_grid, grounds, \
+                                              dx, dy, dt, D_c)
 
-        pretty_plot(u_grid, v_grid, p_grid, grounds, bcs, t)
+        pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t)
+        
+        # Calculate amount of fluid that left and concentration
+        total_concentration += np.dot(concentration[:,0], (v_grid[:,1] - v_grid[:,0]/2))
+        concentration[:,0] = 0
+
+    fig, ax = plt.subplots()
+    ax.imshow(concentration[:,::-1].T)
+    plt.show()
+
+    print("FINAL CONCENTRATION: {}".format(total_concentration/timesteps))
 
 
     # This is my awesome solution to no-flux pressure boundary conditions on the grounds :(
