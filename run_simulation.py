@@ -8,16 +8,19 @@ from matplotlib import pyplot as plt
 ###
 #  x-momentum
 ###
-def _diff_ux(u_gird, i, j, dx, u_bcs):
+#@jit
+def _diff_ux(u_grid, i, j, dx, u_bcs):
 
     # 0 velocities on boundaries
     left = 0 if(any(np.sum([i+1,j] == u_bcs, axis=1)==2)) else u_grid[i+1][j]
     middle = 0 if(any(np.sum([i,j] == u_bcs, axis=1)==2)) else u_grid[i][j]
     right = 0 if(any(np.sum([i-1,j] == u_bcs, axis=1)==2)) else u_grid[i-1][j]
 
-    return 4*nu/(dx**2) * (left - middle + right)
+    #return 4*nu/(dx**2) * (left - middle + right)
+    return nu/(dx**2) * ((left+middle)/2 - 2*middle + (middle+right)/2)
 
 
+#@jit
 def _diff_uy(u_grid, i, j, dy, u_bcs):
 
     # 0 velocities on boundaries
@@ -27,15 +30,16 @@ def _diff_uy(u_grid, i, j, dy, u_bcs):
     right = 0 if(any(np.sum([i,j-1] == u_bcs, axis=1)==2)) else u_grid[i][j-1]
 
     if(j==0): # Ghost node on bottom wall
-        diff_y = 4*nu/(dy**2) * (left - middle - middle)
+        diff_y = nu/(dy**2) * ((left+middle)/2 - 2*middle - middle)
     elif(j==u_grid.shape[1]-1): # Ghost node on bottom wall
-        diff_y = 4*nu/(dy**2) * (-middle - middle + right)
+        diff_y = nu/(dy**2) * (-middle - 2*middle + (right+middle)/2)
     else:
-        diff_y = 4*nu/(dy**2) * (left - middle + right)
+        diff_y = nu/(dy**2) * ((left+middle)/2 - 2*middle + (middle+right)/2)
 
     return diff_y
 
 
+#@jit
 def _duu(u_grid, i, j, dx, u_bcs):
 
     # 0 velocities on boundaries
@@ -47,6 +51,7 @@ def _duu(u_grid, i, j, dx, u_bcs):
                    ((middle + right)/2)**2)
 
 
+#@jit
 def _dvu(u_grid, v_grid, i, j, dy, u_bcs, v_bcs):
 
     # 0 velocities on boundaries
@@ -76,28 +81,14 @@ def _dvu(u_grid, v_grid, i, j, dy, u_bcs, v_bcs):
                   ((u_right+u_middle)/2) - \
                   ((v_bottom_left+v_bottom_right)/2)*\
                   ((u_middle+u_right)/2))
-    #if(j==0): # Ghost node on bottom wall
-    #    dvu = 1/dy * (((v_grid[(i-1)+1][j]+v_grid[(i-1)][j])/2)*\
-    #              ((u_grid[i][j+1]+u_grid[i][j])/2) - \
-    #              ((v_grid[(i-1)+1][j-1]+v_grid[(i-1)][j-1])/2)*\
-    #              ((u_grid[i][j]-u_grid[i][j])/2))
-    #elif(j==u_grid.shape[1]-1): # Ghost node on bottom wall
-    #    dvu = 1/dy * (((v_grid[(i-1)+1][j]+v_grid[(i-1)][j])/2)*\
-    #              ((-u_grid[i][j]+u_grid[i][j])/2) - \
-    #              ((v_grid[(i-1)+1][j-1]+v_grid[(i-1)][j-1])/2)*\
-    #              ((u_grid[i][j]+u_grid[i][j-1])/2))
-    #else:
-    #    dvu = 1/dy * (((v_grid[(i-1)+1][j]+v_grid[(i-1)][j])/2)*\
-    #              ((u_grid[i][j+1]+u_grid[i][j])/2) - \
-    #              ((v_grid[(i-1)+1][j-1]+v_grid[(i-1)][j-1])/2)*\
-    #              ((u_grid[i][j]+u_grid[i][j-1])/2))
 
     return dvu
 
 
 #@jit
 def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
-    u_star_grid = np.zeros(u_grid.shape)
+    #u_star_grid = np.zeros(u_grid.shape)
+    u_star_grid = np.copy(u_grid)
 
     for i in range(1, u_grid.shape[0]-1):
         for j in range(u_grid.shape[1]):
@@ -113,7 +104,7 @@ def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
             # Update grid
             u_star_grid[i][j] = u_grid[i][j] + dt*(diff_x + diff_y - duu - dvu)
 
-    u_star_grid[0] = 0
+    #u_star_grid[0] = u_grid[0]
     u_star_grid[-1] = 0
     u_star_grid[:,0] = 0
     u_star_grid[:,-1] = 0
@@ -123,6 +114,7 @@ def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
 ###
 #  y-momentum
 ###
+#@jit
 def _diff_vx(v_grid, i, j, dx, v_bcs):
 
     # 0 velocities on boundaries
@@ -133,15 +125,16 @@ def _diff_vx(v_grid, i, j, dx, v_bcs):
     right = 0 if(any(np.sum([i-1,j] == v_bcs, axis=1)==2)) else v_grid[i-1][j]
 
     if(i == 0): # Ghost node left wall
-        diff_x = 4*nu/(dx**2) * (left - middle - middle)
+        diff_x = nu/(dx**2) * ((left+middle)/2 - 2*middle - middle)
     elif(i == v_grid.shape[0]-1): # Ghost node right wall
-        diff_x = 4*nu/(dx**2) * (-middle - middle + right)
+        diff_x = nu/(dx**2) * (-middle - 2*middle + (middle+right)/2)
     else:
-        diff_x = 4*nu/(dx**2) * (left - middle + right)
+        diff_x = nu/(dx**2) * ((left+middle)/2 - 2*middle + (middle+right)/2)
 
     return diff_x
 
 
+#@jit
 def _diff_vy(v_grid, i, j, dy, v_bcs):
     
     # 0 velocities on boundaries
@@ -149,9 +142,11 @@ def _diff_vy(v_grid, i, j, dy, v_bcs):
     middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
     right = 0 if(any(np.sum([i,j-1] == v_bcs, axis=1)==2)) else v_grid[i][j-1]
 
-    return 4*nu/(dy**2) * (left - middle + right)
+    #return 4*nu/(dy**2) * (left - middle + right)
+    return nu/(dy**2) * ((left+middle)/2 - 2*middle + (middle+right)/2)
 
 
+#@jit
 def _dvv(v_grid, i, j, dy, v_bcs):
 
     # 0 velocities on boundaries
@@ -163,6 +158,7 @@ def _dvv(v_grid, i, j, dy, v_bcs):
                         ((middle+right)/2)**2)
 
 
+#@jit
 def _duv(v_grid, u_grid, i, j, dx, v_bcs, u_bcs):
 
     # 0 velocities on boundaries
@@ -216,14 +212,14 @@ def y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
             # Update grid
             v_star_grid[i][j] = v_grid[i][j] + dt*(diff_x + diff_y - dvv - dvv)
 
-    # No slip on walls -> Need ghost nodes
+    # No slip on walls 
     v_star_grid[0] = 0
     v_star_grid[-1] = 0
     v_star_grid[:,0] = v_star_grid[:,1]
     return v_star_grid
 
 
-#@jit
+##@jit
 def _build_matrices(p_grid, x_shape, y_shape, w):
     D_inv = -1/(2*(1/(dy**2) + 1/(dx**2)))*np.eye(p_grid.shape[0])
 
@@ -254,6 +250,7 @@ def _multiply(left_matrix, p_grid, D_inv_U, D_inv, b, w):
            np.dot(left_matrix, w*np.dot(D_inv, b))
 
 
+#@jit
 def update_pressure(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, bcs,
                     w=1.8, threshold=1e-5, OVERPRESSURE=9.):
 
@@ -315,7 +312,7 @@ def update_pressure(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, b
         old_grid = np.copy(p_grid)
         p_grid = _multiply(left_matrix, p_grid, D_inv_U, D_inv, b, w)
 
-    print("ITERATIONS: {}".format(it))
+    #print("ITERATIONS: {}".format(it))
     return p_grid
 
 
@@ -386,9 +383,11 @@ def update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, u_bcs, v_bcs):
             v_updated[i][j] = v_grid[i][j] + dt/(rho) * \
                               (p_grid[i][(j-1)+1] - p_grid[i][(j-1)])
 
+    #assert np.array_equal(v_updated, v_grid)
+
     # Bottom and top velocities are the same as interior
-    v_updated[:,-1] = v_updated[:,-2]
-    v_updated[:,0] = v_updated[:,1]
+    #v_updated[:,-1] = v_updated[:,-2]  # Top
+    #v_updated[:,0] = v_updated[:,1]  # Bottom
     #u_updated[-1] = u_updated[-2]
     #u_updated[0] = u_updated[1]
 
@@ -401,7 +400,7 @@ def update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, u_bcs, v_bcs):
     return u_updated, v_updated
 
 
-#@jit
+##@jit
 def final_velocities(u_grid, v_grid, bcs):
     u_final = np.zeros((u_grid.shape[0]-1, u_grid.shape[1]))
     v_final = np.zeros((v_grid.shape[0], v_grid.shape[1]-1))
@@ -421,64 +420,67 @@ def final_velocities(u_grid, v_grid, bcs):
     return u_final, v_final
 
 
+    #@jit
 def updated_concentration(concentration, u_grid, v_grid, grounds, dx, dy, dt, D_c):
-    # This is advection-diffusion
     
-    # Diffusion from grounds
-    for i in range(1, concentration.shape[0]-1):
-        for j in range(1, concentration.shape[1]-1):
-            concentration[i][j] = concentration[i][j] + D_c*dt*(
-              (concentration[i+1][j] - 2*concentration[i][j] + concentration[i-1][j])/(dx**2) + 
-              (concentration[i][j-1] - 2*concentration[i][j] + concentration[i][j-1])/(dy**2))
-
     # Calculate velocities at each node center
     u_center = np.zeros(concentration.shape)
     for i in range(concentration.shape[0]):
         for j in range(concentration.shape[1]):
             u_center[i][j] = (u_grid[i][j] + u_grid[i-1][j])/2
+
     v_center = np.zeros(concentration.shape)
     for i in range(concentration.shape[0]):
         for j in range(concentration.shape[1]):
             v_center[i][j] = (v_grid[i][j+1] + v_grid[i][j])/2
 
     # Advection-diffusion of concentration
+    updated_concentration = np.copy(concentration)
+
+    # Need 0 flux boundary conditions on the walls here and top in diffusion
+    updated_concentration[0] = updated_concentration[1]
+    updated_concentration[-1] = updated_concentration[-2]
+    updated_concentration[:,-1] = updated_concentration[:,-2]
     for i in range(1, concentration.shape[0]-1):
         for j in range(concentration.shape[1]-1):
-            x_ad = u_center[i][j]/dx
-            x_ad *= (u_center[i][j] - u_center[i-1][j]) if(x_ad > 0) else \
-                    (u_center[i+1][j] - u_center[i][j])
 
-            y_ad = v_center[i][j]/dy
-            y_ad *= (v_center[i][j] - v_center[i][j-1]) if(y_ad > 0) else \
-                    (v_center[i][j+1] - v_center[i][j])
+            # Advection terms are velocities 
+            x_ad = dt*u_center[i][j]*concentration[i][j]
+            y_ad = dt*v_center[i][j]*concentration[i][j]
 
             x_diff = dt*D_c*(concentration[i+1][j] - 2*concentration[i][j] + \
-                      concentration[i][j])/(dx**2)
+                             concentration[i-1][j])/(dx**2)
 
             # Need sided scheme at outlet
             if(j != 0):
                 y_diff = dt*D_c*(concentration[i][j+1] - 2*concentration[i][j] + \
-                      concentration[i][j-1])/(dy**2)
+                             concentration[i][j-1])/(dy**2)
             else:
-                y_diff = dt*D_c*(3*concentration[i][j-2] - 4*concentration[i][j-1] - \
-                      concentration[i][j])/(dy**2)
+                y_diff = dt*D_c*(-concentration[i][j-2] + 3*concentration[i][j-1] - \
+                      2*concentration[i][j])/(dy**2)
 
-            concentration[i][j] = concentration[i][j] + x_diff + y_diff
+            updated_concentration[i][j] = concentration[i][j] + x_diff + y_diff - x_ad - y_ad
 
+    #raise
     # Concentration in grounds remains constant
     for i in range(concentration.shape[0]):
         for j in range(concentration.shape[1]):
             if(grounds[i][j] == 1):
-                concentration[i][j] = 10
+                updated_concentration[i][j] = 1
 
-    return concentration
+    return updated_concentration
 
 
 def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t):
     u_final, v_final = final_velocities(u_grid, v_grid, bcs=bcs)
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(10,7))
-    ax[0][0].imshow(grounds[:,::-1].T)
-    ax[0][0].set_title("Espresso Grounds", fontsize=16)
+
+    # Take out 0 flux BCs
+    concentration[0] = 0
+    concentration[-1] = 0
+    concentration[:,-1] = 0
+    ax[0][0].imshow(concentration[:,::-1].T)
+    ax[0][0].set_title("Espresso Grounds and Concentration", fontsize=16)
     ax[0][1].imshow(p_grid[:,::-1].T, cmap="Reds")
     ax[0][1].set_title("Pressure", fontsize=16)
 
@@ -486,15 +488,16 @@ def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t):
     cbar_max = np.max((u_final, v_final))
     cbar_min = np.min((u_final, v_final))
 
-    #ax[1].imshow(u_grid[:,::-1].T)
+    #ax[1][0].imshow(u_grid[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
     ax[1][0].imshow(u_final[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
     ax[1][0].set_title("X-Velocity", fontsize=16)
-    #ax[2].imshow(v_grid[:,::-1].T)
-    im = ax[1][1].imshow(v_final[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
+
+    im = ax[1][1].imshow(v_grid[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
+    #im = ax[1][1].imshow(v_final[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
     ax[1][1].set_title("Y-Velocity", fontsize=16)
 
     # Colorbar
-    plt.colorbar(im, orientation='vertical')
+    #plt.colorbar(im, orientation='vertical')
 
     # Fix plot ticks
     ax[0][0].set_xticks([i for i in range(0, grounds.shape[0], int(grounds.shape[0]/5))])
@@ -519,56 +522,64 @@ def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t):
     ax[1][0].set_ylabel("Y", fontsize=14, rotation=0, x=-0.1)
     fig.suptitle("Timestep: {}".format(t), fontsize=18)
     plt.tight_layout()
+    zeros = "0"*(int(np.log(10001)/np.log(10)) - int(np.log(t+1)/np.log(10)))
+    plt.savefig("./slow_realistic_brews/{}{}.png".format(zeros, t+1))
     #plt.show()
-    zeros = "0"*(int(np.log(1001)/np.log(10)) - int(np.log(t+1)/np.log(10)))
-    plt.savefig("./thin_brews/{}{}.png".format(zeros, t+1))
     plt.close()
     
+
+def output_grids(u_grid, v_grid, p_grid, concentration, t):
+    np.savetxt("./slow_realistic_brews/data/u_grid_{}.csv".format(t), u_grid, delimiter=',')
+    np.savetxt("./slow_realistic_brews/data/v_grid_{}.csv".format(t), v_grid, delimiter=',')
+    np.savetxt("./slow_realistic_brews/data/p_grid_{}.csv".format(t), p_grid, delimiter=',')
+    np.savetxt("./slow_realistic_brews/data/concentration_{}.csv".format(t), concentration,
+                  delimiter=',')
 
 
 if __name__ == '__main__':
 
     # Simulation parameters
-    dx = 0.001
-    dy = 0.001
-    dt = 0.0000001
+    dx = 0.1 # Units are 10 mm
+    dy = 0.1 # Units are 10 mm
+    dt = 0.01
     time = 30
     timesteps = int(time/dt)
 
     #TODO: Check CFL
 
     # System parameters
-    Lx = 0.012
-    Ly = 0.009
-    #Lx = 0.055
-    #Ly = 0.03
-    #TODO: This need to be changed
-    rho = 1.
-    #rho = 0.2818 
+    #Lx = 1.2
+    #Ly = 0.9
+    Lx = 5.5
+    Ly = 3.0
 
-    nu = 0.2818
-    OVERPRESSURE = 6e-6
+    # Physical constants
+    rho = 1.
+    nu = 0.2818  
+    OVERPRESSURE = 6  
+    #print(nu)
+    #raise
 
     u_grid = np.zeros((int(Lx/dx)+1, int(Ly/dy)))
     v_grid = np.zeros((int(Lx/dx), int(Ly/dy)+1))
     p_grid = np.zeros((int(Lx/dx), int(Ly/dy)))
+    #u_grid[0] = 0.001
+    #v_grid[:,-1] = 1.
     p_grid[:,-1] = OVERPRESSURE
-    #p_grid[0] = OVERPRESSURE # Test x-velocity
 
     # Load coffee grounds
     #grounds = load_bed(p_grid, 0.09, seed=1, boulder_frac=1.)
-    grounds = load_bed(np.copy(p_grid), 0.05, seed=1, boulder_frac=0.3)
+    grounds = load_bed(np.copy(p_grid), 0.2, seed=1, boulder_frac=0.0)
     grounds[:,-1] = 0
     bcs = np.argwhere(grounds == 1)
 
     # Get concentration setup
-    concentration = np.copy(grounds)*10
-    D_c = 1.
+    concentration = np.copy(grounds)
+    D_c = 6.25*10**(-6)
 
     # Make u_bcs for staggered grid
     temp_u_bcs = np.copy(bcs)
     temp_u_bcs[:,0] += 1
-    #temp_u_bcs[:,1] -= 1
     u_bcs = np.concatenate((bcs, temp_u_bcs), axis=0)
     u_bcs -= 1
 
@@ -577,9 +588,7 @@ if __name__ == '__main__':
     temp_v_bcs[:,1] -= 1
     v_bcs = np.concatenate((bcs, temp_v_bcs), axis=0)
 
-    #timesteps = 100000
     print(timesteps)
-    timesteps = 1000
     total_concentration = 0
     for t in tqdm(range(timesteps)):
         u_grid = x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=u_bcs)
@@ -592,11 +601,6 @@ if __name__ == '__main__':
                                             bcs=bcs, OVERPRESSURE=OVERPRESSURE)
         p_grid[1:-1,1:-1] = flat_p_grid.reshape((p_grid.shape[0]-2, p_grid.shape[1]-2))
 
-        # Test pressure BCs with PJ method. I believe its correct now.
-        #p_grid = point_jacobi(u_grid, v_grid, p_grid, dx, dy, dt, rho,
-        #                      p_grid.shape[0]-2, p_grid.shape[1]-2, OVERPRESSURE=OVERPRESSURE,
-        #                      threshold=1e-5)
-
         # Pressure is same at walls
         p_grid[0] = p_grid[1]
         p_grid[-1] = p_grid[-2]
@@ -606,15 +610,12 @@ if __name__ == '__main__':
         concentration = updated_concentration(concentration, u_grid, v_grid, grounds, \
                                               dx, dy, dt, D_c)
 
-        pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t)
-        
         # Calculate amount of fluid that left and concentration
         total_concentration += np.dot(concentration[:,0], (v_grid[:,1] - v_grid[:,0]/2))
         concentration[:,0] = 0
 
-    fig, ax = plt.subplots()
-    ax.imshow(concentration[:,::-1].T)
-    plt.show()
+        pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t)
+        output_grids(u_grid, v_grid, p_grid, concentration, t+1)
 
     print("FINAL CONCENTRATION: {}".format(total_concentration/timesteps))
 
