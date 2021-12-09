@@ -8,26 +8,25 @@ from matplotlib import pyplot as plt
 ###
 #  x-momentum
 ###
-#@jit
+@jit
 def _diff_ux(u_grid, i, j, dx, u_bcs):
 
     # 0 velocities on boundaries
-    left = 0 if(any(np.sum([i+1,j] == u_bcs, axis=1)==2)) else u_grid[i+1][j]
-    middle = 0 if(any(np.sum([i,j] == u_bcs, axis=1)==2)) else u_grid[i][j]
-    right = 0 if(any(np.sum([i-1,j] == u_bcs, axis=1)==2)) else u_grid[i-1][j]
+    left = 0 if(np.any(np.sum(np.array([i+1,j]) == u_bcs, axis=1)==2)) else u_grid[i+1][j]
+    middle = 0 if(np.any(np.sum(np.array([i,j]) == u_bcs, axis=1)==2)) else u_grid[i][j]
+    right = 0 if(np.any(np.sum(np.array([i-1,j]) == u_bcs, axis=1)==2)) else u_grid[i-1][j]
 
-    #return 4*nu/(dx**2) * (left - middle + right)
     return nu/(dx**2) * ((left+middle)/2 - 2*middle + (middle+right)/2)
 
 
-#@jit
+@jit
 def _diff_uy(u_grid, i, j, dy, u_bcs):
 
     # 0 velocities on boundaries
-    left = 0 if(any(np.sum([i,j+1] == u_bcs, axis=1)==2) or
+    left = 0 if(np.any(np.sum(np.array([i,j+1]) == u_bcs, axis=1)==2) or
               not((j+1) < (u_grid.shape[1]-1))) else u_grid[i][j+1]
-    middle = 0 if(any(np.sum([i,j] == u_bcs, axis=1)==2)) else u_grid[i][j]
-    right = 0 if(any(np.sum([i,j-1] == u_bcs, axis=1)==2)) else u_grid[i][j-1]
+    middle = 0 if(np.any(np.sum(np.array([i,j]) == u_bcs, axis=1)==2)) else u_grid[i][j]
+    right = 0 if(np.any(np.sum(np.array([i,j-1]) == u_bcs, axis=1)==2)) else u_grid[i][j-1]
 
     if(j==0): # Ghost node on bottom wall
         diff_y = nu/(dy**2) * ((left+middle)/2 - 2*middle - middle)
@@ -39,32 +38,36 @@ def _diff_uy(u_grid, i, j, dy, u_bcs):
     return diff_y
 
 
-#@jit
+@jit
 def _duu(u_grid, i, j, dx, u_bcs):
 
     # 0 velocities on boundaries
-    left = 0 if(any(np.sum([i+1,j] == u_bcs, axis=1)==2)) else u_grid[i+1][j]
-    middle = 0 if(any(np.sum([i,j] == u_bcs, axis=1)==2)) else u_grid[i][j]
-    right = 0 if(any(np.sum([i-1,j] == u_bcs, axis=1)==2)) else u_grid[i-1][j]
+    left = 0 if(np.any(np.sum(np.array([i+1,j]) == u_bcs, axis=1)==2)) else u_grid[i+1][j]
+    middle = 0 if(np.any(np.sum(np.array([i,j]) == u_bcs, axis=1)==2)) else u_grid[i][j]
+    right = 0 if(np.any(np.sum(np.array([i-1,j]) == u_bcs, axis=1)==2)) else u_grid[i-1][j]
 
     return 1/dx * (((left+middle)/2)**2 - \
                    ((middle + right)/2)**2)
 
 
-#@jit
+@jit
 def _dvu(u_grid, v_grid, i, j, dy, u_bcs, v_bcs):
 
     # 0 velocities on boundaries
-    u_left = 0 if(any(np.sum([i,j+1] == u_bcs, axis=1)==2) or
+    u_left = 0 if(np.any(np.sum(np.array([i,j+1]) == u_bcs, axis=1)==2) or
               not((j+1) < (u_grid.shape[1]-1))) else u_grid[i][j+1]
-    u_middle = 0 if(any(np.sum([i,j] == u_bcs, axis=1)==2)) else u_grid[i][j]
-    u_right = 0 if(any(np.sum([i,j-1] == u_bcs, axis=1)==2)) else u_grid[i][j-1]
+    u_middle = 0 if(np.any(np.sum(np.array([i,j]) == u_bcs, axis=1)==2)) else u_grid[i][j]
+    u_right = 0 if(np.any(np.sum(np.array([i,j-1]) == u_bcs, axis=1)==2)) else u_grid[i][j-1]
 
     # 0 velocities on boundaries
-    v_top_left = 0 if(any(np.sum([(i-1)+1,j] == v_bcs, axis=1)==2)) else v_grid[(i-1)+1][j]
-    v_top_right = 0 if(any(np.sum([(i-1),j] == v_bcs, axis=1)==2)) else v_grid[(i-1)][j]
-    v_bottom_left = 0 if(any(np.sum([(i-1),(j-1)] == v_bcs, axis=1)==2)) else v_grid[(i-1)][j-1]
-    v_bottom_right = 0 if(any(np.sum([(i-1),(j-1)] == v_bcs, axis=1)==2)) else v_grid[(i-1)][j-1]
+    v_top_left = 0 if(np.any(np.sum(np.array([(i-1)+1,j]) == v_bcs, axis=1)==2)) else \
+                      v_grid[(i-1)+1][j]
+    v_top_right = 0 if(np.any(np.sum(np.array([(i-1),j]) == v_bcs, axis=1)==2)) else \
+                      v_grid[(i-1)][j]
+    v_bottom_left = 0 if(np.any(np.sum(np.array([(i-1),(j-1)]) == v_bcs, axis=1)==2)) else \
+                      v_grid[(i-1)][j-1]
+    v_bottom_right = 0 if(np.any(np.sum(np.array([(i-1),(j-1)]) == v_bcs, axis=1)==2)) else \
+                      v_grid[(i-1)][j-1]
 
     if(j==0): # Ghost node on bottom wall
         dvu = 1/dy * (((v_top_left+v_top_right)/2)*\
@@ -85,7 +88,7 @@ def _dvu(u_grid, v_grid, i, j, dy, u_bcs, v_bcs):
     return dvu
 
 
-#@jit
+@jit
 def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
     #u_star_grid = np.zeros(u_grid.shape)
     u_star_grid = np.copy(u_grid)
@@ -114,15 +117,15 @@ def x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
 ###
 #  y-momentum
 ###
-#@jit
+@jit
 def _diff_vx(v_grid, i, j, dx, v_bcs):
 
     # 0 velocities on boundaries
     # Additional condition skips edge because it isn't used in diff_x
-    left = 0 if(any(np.sum([i+1,j] == v_bcs, axis=1)==2) or 
+    left = 0 if(np.any(np.sum(np.array([i+1,j]) == v_bcs, axis=1)==2) or 
              not((i+1) < (v_grid.shape[0]-1))) else v_grid[i+1][j]
-    middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
-    right = 0 if(any(np.sum([i-1,j] == v_bcs, axis=1)==2)) else v_grid[i-1][j]
+    middle = 0 if(np.any(np.sum(np.array([i,j]) == v_bcs, axis=1)==2)) else v_grid[i][j]
+    right = 0 if(np.any(np.sum(np.array([i-1,j]) == v_bcs, axis=1)==2)) else v_grid[i-1][j]
 
     if(i == 0): # Ghost node left wall
         diff_x = nu/(dx**2) * ((left+middle)/2 - 2*middle - middle)
@@ -134,44 +137,44 @@ def _diff_vx(v_grid, i, j, dx, v_bcs):
     return diff_x
 
 
-#@jit
+@jit
 def _diff_vy(v_grid, i, j, dy, v_bcs):
     
     # 0 velocities on boundaries
-    left = 0 if(any(np.sum([i,j+1] == v_bcs, axis=1)==2)) else v_grid[i][j+1]
-    middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
-    right = 0 if(any(np.sum([i,j-1] == v_bcs, axis=1)==2)) else v_grid[i][j-1]
+    left = 0 if(np.any(np.sum(np.array([i,j+1]) == v_bcs, axis=1)==2)) else v_grid[i][j+1]
+    middle = 0 if(np.any(np.sum(np.array([i,j]) == v_bcs, axis=1)==2)) else v_grid[i][j]
+    right = 0 if(np.any(np.sum(np.array([i,j-1]) == v_bcs, axis=1)==2)) else v_grid[i][j-1]
 
     #return 4*nu/(dy**2) * (left - middle + right)
     return nu/(dy**2) * ((left+middle)/2 - 2*middle + (middle+right)/2)
 
 
-#@jit
+@jit
 def _dvv(v_grid, i, j, dy, v_bcs):
 
     # 0 velocities on boundaries
-    left = 0 if(any(np.sum([i,j+1] == v_bcs, axis=1)==2)) else v_grid[i][j+1]
-    middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
-    right = 0 if(any(np.sum([i,j-1] == v_bcs, axis=1)==2)) else v_grid[i][j-1]
+    left = 0 if(np.any(np.sum(np.array([i,j+1]) == v_bcs, axis=1)==2)) else v_grid[i][j+1]
+    middle = 0 if(np.any(np.sum(np.array([i,j]) == v_bcs, axis=1)==2)) else v_grid[i][j]
+    right = 0 if(np.any(np.sum(np.array([i,j-1]) == v_bcs, axis=1)==2)) else v_grid[i][j-1]
 
     return  1/(2*dy) * (((left+middle)/2)**2 - \
                         ((middle+right)/2)**2)
 
 
-#@jit
+@jit
 def _duv(v_grid, u_grid, i, j, dx, v_bcs, u_bcs):
 
     # 0 velocities on boundaries
-    v_left = 0 if(any(np.sum([i,j+1] == v_bcs, axis=1)==2)) else v_grid[i][j+1]
-    v_middle = 0 if(any(np.sum([i,j] == v_bcs, axis=1)==2)) else v_grid[i][j]
-    v_right = 0 if(any(np.sum([i,j-1] == v_bcs, axis=1)==2)) else v_grid[i][j-1]
+    v_left = 0 if(np.any(np.sum(np.array([i,j+1]) == v_bcs, axis=1)==2)) else v_grid[i][j+1]
+    v_middle = 0 if(np.any(np.sum(np.array([i,j]) == v_bcs, axis=1)==2)) else v_grid[i][j]
+    v_right = 0 if(np.any(np.sum(np.array([i,j-1]) == v_bcs, axis=1)==2)) else v_grid[i][j-1]
 
     # 0 velocities on boundaries
-    u_top_left = 0 if(any(np.sum([i,(j-1)+1] == v_bcs, axis=1)==2)) else u_grid[i][(j-1)+1]
-    u_top_right = 0 if(any(np.sum([i,(j-1)] == v_bcs, axis=1)==2)) else u_grid[i][(j-1)]
-    u_bottom_left = 0 if(any(np.sum([i-1,j] == v_bcs, axis=1)==2)) else \
+    u_top_left = 0 if(np.any(np.sum(np.array([i,(j-1)+1]) == v_bcs, axis=1)==2)) else u_grid[i][(j-1)+1]
+    u_top_right = 0 if(np.any(np.sum(np.array([i,(j-1)]) == v_bcs, axis=1)==2)) else u_grid[i][(j-1)]
+    u_bottom_left = 0 if(np.any(np.sum(np.array([i-1,j]) == v_bcs, axis=1)==2)) else \
                       u_grid[i-1][j]
-    u_bottom_right = 0 if(any(np.sum([i-1,(j-1)-1] == v_bcs, axis=1)==2)) else \
+    u_bottom_right = 0 if(np.any(np.sum(np.array([i-1,(j-1)-1]) == v_bcs, axis=1)==2)) else \
                       u_grid[i-1][j-1]
 
     if(i == 0): # Ghost node left wall
@@ -193,7 +196,7 @@ def _duv(v_grid, u_grid, i, j, dx, v_bcs, u_bcs):
     return duv
 
 
-#@jit
+@jit
 def y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
     v_star_grid = np.copy(v_grid)
 
@@ -219,7 +222,7 @@ def y_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs):
     return v_star_grid
 
 
-##@jit
+@jit
 def _build_matrices(p_grid, x_shape, y_shape, w):
     D_inv = -1/(2*(1/(dy**2) + 1/(dx**2)))*np.eye(p_grid.shape[0])
 
@@ -245,6 +248,7 @@ def _build_matrices(p_grid, x_shape, y_shape, w):
     return left_matrix, D_inv, D_inv_U
 
 
+@jit
 def _multiply(left_matrix, p_grid, D_inv_U, D_inv, b, w):
     return np.dot(left_matrix,np.dot((1-w)*np.eye(p_grid.shape[0]) + w*D_inv_U, p_grid)) + \
            np.dot(left_matrix, w*np.dot(D_inv, b))
@@ -254,7 +258,7 @@ def _multiply(left_matrix, p_grid, D_inv_U, D_inv, b, w):
 def update_pressure(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, bcs,
                     w=1.8, threshold=1e-5, OVERPRESSURE=9.):
 
-    final_grid = np.zeros(p_grid.shape)
+    final_grid = np.zeros(p_grid.shape, dtype=float)
 
     # Get matrices
     left_matrix, D_inv, D_inv_U = _build_matrices(p_grid, x_shape, y_shape, w)
@@ -272,7 +276,6 @@ def update_pressure(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, b
             b_matrix[i][j] = rho/dt * ((u_grid[i][j] - u_grid[i-1][j])/dx + \
                                        (v_grid[i][j] - v_grid[i][j-1])/dy)
     velocities = b_matrix[1:-1,1:-1].reshape(p_grid.shape)
-    #print(velocities)
     assert velocities.shape == p_grid.shape
 
     it = 1
@@ -366,7 +369,7 @@ def point_jacobi(u_grid, v_grid, p_grid, dx, dy, dt, rho, x_shape, y_shape, bcs,
     return final_grid
 
 
-#@jit
+@jit
 def update_velocities(u_grid, v_grid, p_grid, dx, dy, dt, rho, u_bcs, v_bcs):
 
     # Bulk
@@ -420,7 +423,7 @@ def final_velocities(u_grid, v_grid, bcs):
     return u_final, v_final
 
 
-    #@jit
+@jit
 def updated_concentration(concentration, u_grid, v_grid, grounds, dx, dy, dt, D_c):
     
     # Calculate velocities at each node center
@@ -471,7 +474,7 @@ def updated_concentration(concentration, u_grid, v_grid, grounds, dx, dy, dt, D_
     return updated_concentration
 
 
-def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t):
+def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t, output_dir):
     u_final, v_final = final_velocities(u_grid, v_grid, bcs=bcs)
     fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(10,7))
 
@@ -492,8 +495,8 @@ def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t):
     ax[1][0].imshow(u_final[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
     ax[1][0].set_title("X-Velocity", fontsize=16)
 
-    im = ax[1][1].imshow(v_grid[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
-    #im = ax[1][1].imshow(v_final[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
+    #im = ax[1][1].imshow(v_grid[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
+    im = ax[1][1].imshow(v_final[:,::-1].T, cmap="Reds", vmin=cbar_min, vmax=cbar_max)
     ax[1][1].set_title("Y-Velocity", fontsize=16)
 
     # Colorbar
@@ -522,26 +525,26 @@ def pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t):
     ax[1][0].set_ylabel("Y", fontsize=14, rotation=0, x=-0.1)
     fig.suptitle("Timestep: {}".format(t), fontsize=18)
     plt.tight_layout()
-    zeros = "0"*(int(np.log(10001)/np.log(10)) - int(np.log(t+1)/np.log(10)))
-    plt.savefig("./slow_realistic_brews/{}{}.png".format(zeros, t+1))
+    zeros = "0"*(int(np.log(1000001)/np.log(10)) - int(np.log(t+1)/np.log(10)))
+    plt.savefig("./{}/{}{}.png".format(output_dir, zeros, t+1))
     #plt.show()
     plt.close()
     
 
-def output_grids(u_grid, v_grid, p_grid, concentration, t):
-    np.savetxt("./slow_realistic_brews/data/u_grid_{}.csv".format(t), u_grid, delimiter=',')
-    np.savetxt("./slow_realistic_brews/data/v_grid_{}.csv".format(t), v_grid, delimiter=',')
-    np.savetxt("./slow_realistic_brews/data/p_grid_{}.csv".format(t), p_grid, delimiter=',')
-    np.savetxt("./slow_realistic_brews/data/concentration_{}.csv".format(t), concentration,
+def output_grids(u_grid, v_grid, p_grid, concentration, t, output_dir="small_realistic_brews"):
+    np.savetxt("./{}/data/u_grid_{}.csv".format(output_dir, t), u_grid, delimiter=',')
+    np.savetxt("./{}/data/v_grid_{}.csv".format(output_dir, t), v_grid, delimiter=',')
+    np.savetxt("./{}/data/p_grid_{}.csv".format(output_dir, t), p_grid, delimiter=',')
+    np.savetxt("./{}/data/concentration_{}.csv".format(output_dir, t), concentration,
                   delimiter=',')
 
 
 if __name__ == '__main__':
 
     # Simulation parameters
-    dx = 0.1 # Units are 10 mm
-    dy = 0.1 # Units are 10 mm
-    dt = 0.01
+    dx = 0.005 # Units are 10 mm
+    dy = 0.005 # Units are 10 mm
+    dt = 0.00002
     time = 30
     timesteps = int(time/dt)
 
@@ -550,26 +553,32 @@ if __name__ == '__main__':
     # System parameters
     #Lx = 1.2
     #Ly = 0.9
-    Lx = 5.5
-    Ly = 3.0
+    Lx = 0.055 * 5
+    Ly = 0.03 * 5
+    output_dir = "realistic_brews"
 
     # Physical constants
     rho = 1.
-    nu = 0.2818  
-    OVERPRESSURE = 6  
+    nu = 0.2818 / 5
+    OVERPRESSURE = 6 / 5
     #print(nu)
     #raise
 
     u_grid = np.zeros((int(Lx/dx)+1, int(Ly/dy)))
     v_grid = np.zeros((int(Lx/dx), int(Ly/dy)+1))
     p_grid = np.zeros((int(Lx/dx), int(Ly/dy)))
+    print(p_grid.shape)
     #u_grid[0] = 0.001
     #v_grid[:,-1] = 1.
     p_grid[:,-1] = OVERPRESSURE
 
     # Load coffee grounds
     #grounds = load_bed(p_grid, 0.09, seed=1, boulder_frac=1.)
-    grounds = load_bed(np.copy(p_grid), 0.2, seed=1, boulder_frac=0.0)
+    grounds = load_bed(np.copy(p_grid), 0.2, seed=3, boulder_frac=0.7)
+    #fig, ax = plt.subplots()
+    #ax.imshow(grounds)
+    #plt.show()
+    #raise
     grounds[:,-1] = 0
     bcs = np.argwhere(grounds == 1)
 
@@ -588,7 +597,6 @@ if __name__ == '__main__':
     temp_v_bcs[:,1] -= 1
     v_bcs = np.concatenate((bcs, temp_v_bcs), axis=0)
 
-    print(timesteps)
     total_concentration = 0
     for t in tqdm(range(timesteps)):
         u_grid = x_momentum(u_grid, v_grid, dx, dy, dt, nu, bcs=u_bcs)
@@ -614,8 +622,9 @@ if __name__ == '__main__':
         total_concentration += np.dot(concentration[:,0], (v_grid[:,1] - v_grid[:,0]/2))
         concentration[:,0] = 0
 
-        pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t)
-        output_grids(u_grid, v_grid, p_grid, concentration, t+1)
+        if(((t+1)%1000 == 0) or (t==0)):
+            pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t, output_dir)
+            output_grids(u_grid, v_grid, p_grid, concentration, t+1, output_dir)
 
     print("FINAL CONCENTRATION: {}".format(total_concentration/timesteps))
 
