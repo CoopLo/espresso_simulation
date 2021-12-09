@@ -466,10 +466,10 @@ def updated_concentration(concentration, u_grid, v_grid, grounds, dx, dy, dt, D_
 
     #raise
     # Concentration in grounds remains constant
-    for i in range(concentration.shape[0]):
-        for j in range(concentration.shape[1]):
-            if(grounds[i][j] == 1):
-                updated_concentration[i][j] = 1
+    #for i in range(concentration.shape[0]):
+    #    for j in range(concentration.shape[1]):
+    #        if(grounds[i][j] == 1):
+    #            updated_concentration[i][j] = 1
 
     return updated_concentration
 
@@ -542,25 +542,26 @@ def output_grids(u_grid, v_grid, p_grid, concentration, t, output_dir="small_rea
 if __name__ == '__main__':
 
     # Simulation parameters
-    dx = 0.005 # Units are 10 mm
-    dy = 0.005 # Units are 10 mm
-    dt = 0.00002
+    FACTOR = 10
+    dx = 0.001 * FACTOR # Units are 10 mm
+    dy = 0.001 * FACTOR# Units are 10 mm
+    dt = 0.00002 * FACTOR
     time = 30
     timesteps = int(time/dt)
 
     #TODO: Check CFL
 
     # System parameters
-    #Lx = 1.2
-    #Ly = 0.9
-    Lx = 0.055 * 5
-    Ly = 0.03 * 5
-    output_dir = "realistic_brews"
+    #Lx = 0.03 * FACTOR
+    #Ly = 0.015 * FACTOR
+    Lx = 0.055 * FACTOR
+    Ly = 0.03 * FACTOR
+    output_dir = "fully_realistic_brews"
 
     # Physical constants
     rho = 1.
-    nu = 0.2818 / 5
-    OVERPRESSURE = 6 / 5
+    nu = 0.2818 / FACTOR
+    OVERPRESSURE = 6 / FACTOR
     #print(nu)
     #raise
 
@@ -584,7 +585,7 @@ if __name__ == '__main__':
 
     # Get concentration setup
     concentration = np.copy(grounds)
-    D_c = 6.25*10**(-6)
+    D_c = 6.25*10**(-10) * (FACTOR**2)
 
     # Make u_bcs for staggered grid
     temp_u_bcs = np.copy(bcs)
@@ -622,11 +623,12 @@ if __name__ == '__main__':
         total_concentration += np.dot(concentration[:,0], (v_grid[:,1] - v_grid[:,0]/2))
         concentration[:,0] = 0
 
-        if(((t+1)%1000 == 0) or (t==0)):
+        if(((t+1)%100 == 0) or (t==0)):
             pretty_plot(u_grid, v_grid, p_grid, grounds, concentration, bcs, t, output_dir)
             output_grids(u_grid, v_grid, p_grid, concentration, t+1, output_dir)
 
     print("FINAL CONCENTRATION: {}".format(total_concentration/timesteps))
+    print("EXTRACTION YIELD: {}".format(total_concentration/np.sum(grounds)))
 
 
     # This is my awesome solution to no-flux pressure boundary conditions on the grounds :(
