@@ -168,17 +168,22 @@ def velocity_plots(output_dir, tstep, bcs, dt, factor=10, save_dir=None):
         u_final, v_final = final_velocities(u_grid, v_grid, bcs)
         fu_final, fv_final = final_velocities(fu, fv, bcs)
 
-        velocity_min = min([np.min(u_final), np.min(fu_final), np.min(v_final),
-                            np.min(fv_final)])
-        velocity_max = max([np.max(u_final), np.max(fu_final), np.max(v_final),
-                            np.max(fv_final)])
+        #print(np.min(u_final), np.min(fu_final), np.min(u_grid), np.min(fu))
+        #raise
+        v_velocity_min = min([np.min(v_final), np.min(fv_final)])
+        v_velocity_max = max([np.max(v_final), np.max(fv_final)])
 
-        im = ax_u[i].imshow(u_final[:,::-1].T, vmin=velocity_min, vmax=velocity_max, cmap="Reds")
+        u_velocity_min = min([np.min(u_final), np.min(fu_final)])
+        u_velocity_max = max([np.max(u_final), np.max(fu_final)])
+
+        u_im = ax_u[i].imshow(u_final[:,::-1].T, vmin=u_velocity_min, vmax=u_velocity_max,
+                            cmap="bwr")
         ax_u[i].set_xticks([])#i for i in [-0.5, 9.5, 19.5, 29.5]])
         ax_u[i].set_xticklabels([])# for i in [-0.5, 9.5, 19.5, 29.5]])
         ax_u[i].set_title("Time = {}s".format(tstep[i]*dt), y=0.93, fontsize=9)
 
-        im = ax_v[i].imshow(v_final[:,::-1].T, vmin=velocity_min, vmax=velocity_max, cmap="Reds")
+        v_im = ax_v[i].imshow(v_final[:,::-1].T, vmin=v_velocity_min, vmax=v_velocity_max,
+                            cmap="Reds")
         ax_v[i].set_xticks([])#i for i in [-0.5, 9.5, 19.5, 29.5]])
         ax_v[i].set_xticklabels([])# for i in [-0.5, 9.5, 19.5, 29.5]])
         ax_v[i].set_title("Time = {}s".format(tstep[i]*dt), y=0.93, fontsize=9)
@@ -189,7 +194,7 @@ def velocity_plots(output_dir, tstep, bcs, dt, factor=10, save_dir=None):
     fig_u.text(0.32, 0.45, "Y (mm)", rotation='vertical')
 
     cbar_ax_u = fig_u.add_axes([0.67, 0.15, 0.02, 0.7])
-    u_cbar = fig_u.colorbar(im, cax=cbar_ax_u)
+    u_cbar = fig_u.colorbar(u_im, cax=cbar_ax_u)
     ubar_ticks = u_cbar.get_ticks()
     u_cbar.set_ticks([i for i in ubar_ticks])
     u_cbar.set_ticklabels(["{0:.0e}".format(i) for i in ubar_ticks])
@@ -204,7 +209,7 @@ def velocity_plots(output_dir, tstep, bcs, dt, factor=10, save_dir=None):
 
     cbar_ax_v = fig_v.add_axes([0.67, 0.15, 0.02, 0.7])
 
-    v_cbar = fig_v.colorbar(im, cax=cbar_ax_v)
+    v_cbar = fig_v.colorbar(v_im, cax=cbar_ax_v)
     vbar_ticks = v_cbar.get_ticks()
     v_cbar.set_ticks([i for i in vbar_ticks])
     v_cbar.set_ticklabels(["{0:.0e}".format(i) for i in vbar_ticks])
@@ -246,6 +251,7 @@ if __name__ == '__main__':
 
     sim = "finally_tasty_point_brews"
     sim = "tasty_point_brews"
+    #sim = "exact_brews"
 
     #data = load_data(sim, 150000, bcs)
 
